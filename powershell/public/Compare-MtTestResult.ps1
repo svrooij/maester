@@ -14,6 +14,12 @@
     }
     Compare-MtTestResult @tests
 
+    .EXAMPLE
+    Compare-MtTestResult -PriorTest $prior -NewTest $new -Detailed
+
+    Returns a classification object with the tests that started failing (NewlyFailing), that
+    were fixed (Fixed), that are new (New), plus StillFailing, StillPassing and Removed.
+
     .LINK
     https://maester.dev/docs/commands/Compare-MtTestResult
     #>
@@ -27,7 +33,10 @@
         $PriorTest,
         [Parameter(ParameterSetName = "Files", Position = 1, Mandatory = $true)]
         # Path to the newer test result JSON-file to be used as the current result.
-        $NewTest
+        $NewTest,
+        # Return the full classification object (NewlyFailing, Fixed, New, StillFailing,
+        # StillPassing, Removed) instead of the flat list of changed tests.
+        [switch] $Detailed
     )
 
     if (-not ($NewTest -and $PriorTest)) {
@@ -56,9 +65,15 @@
         }
 
         foreach ($reportToCompare in $reportsToCompare) {
-            Compare-MtTestResult -NewTest $reportToCompare.reports[0] -PriorTest $reportToCompare.reports[1]
+            Compare-MtTestResult -NewTest $reportToCompare.reports[0] -PriorTest $reportToCompare.reports[1] -Detailed:$Detailed
         }
     } else {
+        if ($Detailed) {
+            $currentState = ConvertTo-MtTestState -MaesterResults $NewTest
+            $previousState = ConvertTo-MtTestState -MaesterResults $PriorTest
+            return Compare-MtTestState -CurrentState $currentState -PreviousState $previousState
+        }
+
         $compareTests = ($NewTest.Tests + $PriorTest.Tests) | Group-Object Name, Result
         $testDeltas = $compareTests | Where-Object { $_.Count -lt 2 } | Select-Object -Unique @{n = "Name"; e = { $_.Group.Name } }
         $results = @()

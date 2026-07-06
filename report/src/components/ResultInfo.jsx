@@ -6,6 +6,7 @@ import StatusLabelSm from "./StatusLabelSm";
 import SeverityBadge from "./SeverityBadge";
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { getPreviousResult, hasPreviousResult, isTestChanged } from "@/lib/previousResult";
 
 export default function ResultInfo({ Item, isPrintView }) {
   const openInNewTab = useCallback((url) => {
@@ -72,6 +73,15 @@ export default function ResultInfo({ Item, isPrintView }) {
         {Item.Severity && (
           <div title="Severity" className="flex items-center">
             <SeverityBadge Severity={Item.Severity} />
+          </div>
+        )}
+        {hasPreviousResult(Item) && (
+          <div
+            title="Result of this test in the previous run"
+            className={`flex items-center gap-1 text-xs ${isTestChanged(Item) ? "text-amber-600 dark:text-amber-400" : "text-zinc-400 dark:text-zinc-500"}`}
+          >
+            <span>Previous:</span>
+            {getPreviousResult(Item) ? <StatusLabelSm Result={getPreviousResult(Item)} /> : <span className="font-medium">New</span>}
           </div>
         )}
         <StatusLabel Result={Item.Result} />
