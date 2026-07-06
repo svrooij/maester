@@ -23,8 +23,8 @@ Compare-MtTestResult [-BaseDir] <Object> [-ProgressAction <ActionPreference>] [<
 ### Files
 
 ```powershell
-Compare-MtTestResult [-PriorTest] <Object> [-NewTest] <Object> [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+Compare-MtTestResult [-PriorTest] <Object> [-NewTest] <Object> [-Detailed]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -49,6 +49,15 @@ PriorTest = (Get-Content .\test-results\TestResults-2024-05-20-182925.json | Con
 }
 Compare-MtTestResult @tests
 ```
+
+### EXAMPLE 3
+
+```powershell
+Compare-MtTestResult -PriorTest $prior -NewTest $new -Detailed
+```
+
+Returns a classification object with the tests that started failing (NewlyFailing), that
+were fixed (Fixed), that are new (New), plus StillFailing, StillPassing and Removed.
 
 ## PARAMETERS
 
@@ -97,6 +106,23 @@ Aliases:
 Required: True
 Position: 2
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Detailed
+
+Return the full classification object (NewlyFailing, Fixed, New, StillFailing,
+StillPassing, Removed) instead of the flat list of changed tests.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: Files
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

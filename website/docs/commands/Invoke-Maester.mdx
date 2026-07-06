@@ -22,7 +22,8 @@ Invoke-Maester [[-Path] <String>] [-Tag <String[]>] [-ExcludeTag <String[]>] [-I
  [-NonInteractive] [-PassThru] [-MailRecipient <String[]>] [-MailTestResultsUri <String>]
  [-MailUserId <String>] [-TeamId <String>] [-TeamChannelId <String>] [-TeamChannelWebhookUri <String>]
  [-SkipGraphConnect] [-DisableTelemetry] [-SkipVersionCheck] [-ExportCsv] [-ExportExcel] [-NoLogo]
- [-DriftRoot <String>] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-DriftRoot <String>] [-CompareToPrevious] [-PreviousResultsPath <String>]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -627,6 +628,40 @@ Accept wildcard characters: False
 ### -DriftRoot
 
 The root directory for configuration drift tracking.
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -CompareToPrevious
+
+Compare this run against the previous run and include a "Changes since last run" section
+(tests that started failing, that were fixed, and new tests) in the results and reports.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -PreviousResultsPath
+
+The path to a previous result JSON file, or a folder containing previous TestResults-*.json
+files, to compare against. Defaults to the output folder. Implies -CompareToPrevious.
 
 ```yaml
 Type: String

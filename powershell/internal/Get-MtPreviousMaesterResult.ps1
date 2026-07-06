@@ -37,7 +37,9 @@ function Get-MtPreviousMaesterResult {
         return $null
     }
 
-    # If a directory was provided and there are no result files yet, there is nothing to compare.
+    # Build the list of paths to import. For a directory we enumerate the result files so we can
+    # exclude the file the current run is about to write (ExcludeFile) before importing.
+    $importPaths = @()
     if (Test-Path -Path $Path -PathType Container) {
         $existing = @(Get-ChildItem -Path $Path -Filter 'TestResults-*.json' -File -ErrorAction SilentlyContinue)
         if ($existing.Count -eq 0) {
@@ -50,9 +52,28 @@ function Get-MtPreviousMaesterResult {
             Write-Verbose "Get-MtPreviousMaesterResult: no previous result files found in '$Path'."
             return $null
         }
+        $importPaths = @($existing.FullName)
+    } else {
+        # A specific file was provided. Honor ExcludeFile so a run cannot compare against itself.
+        $resolvedFile = (Resolve-Path -Path $Path -ErrorAction SilentlyContinue).Path
+        if ($ExcludeFile -and $resolvedFile -eq $ExcludeFile) {
+            Write-Verbose "Get-MtPreviousMaesterResult: the only candidate '$Path' is the excluded file."
+            return $null
+        }
+        $importPaths = @($Path)
     }
 
-    $results = @(Import-MtMaesterResult -Path $Path -ErrorAction SilentlyContinue)
+    $results = @()
+    # Import-MtMaesterResult returns its list with a leading unary comma to preserve array
+    # semantics, so a single call can surface as one nested array element. Flatten one level
+    # so tenant filtering and sorting operate on the individual result objects.
+    foreach ($item in @(Import-MtMaesterResult -Path $importPaths -ErrorAction SilentlyContinue)) {
+        if ($item -is [System.Array]) {
+            $results += $item
+        } elseif ($null -ne $item) {
+            $results += $item
+        }
+    }
     if ($results.Count -eq 0) {
         Write-Verbose "Get-MtPreviousMaesterResult: no valid previous results loaded from '$Path'."
         return $null
