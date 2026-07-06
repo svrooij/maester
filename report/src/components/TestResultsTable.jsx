@@ -5,6 +5,7 @@ import SeverityBadge from "./SeverityBadge";
 import { ArrowDownIcon, ArrowUpIcon, MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getLinkedTestResultId, getPreferredScrollBehavior, getTestResultAnchorHash, getTestResultAnchorId } from "@/lib/reportLinks";
+import { getPreviousResult, hasComparisonData, isTestChanged } from "@/lib/previousResult";
 
 // Lazy load the ResultInfoSheet component
 const ResultInfoSheet = lazy(() => import("./ResultInfoSheet"));
@@ -29,6 +30,7 @@ export default function TestResultsTable(props) {
   const [selectedBlock, setSelectedBlock] = useState([]);
   const [selectedTag, setSelectedTag] = useState([]);
   const [selectedSeverity, setSelectedSeverity] = useState([]);
+  const [showChangedOnly, setShowChangedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState("Id");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -37,6 +39,7 @@ export default function TestResultsTable(props) {
   const [linkedAnchorId, setLinkedAnchorId] = useState(null);
   const lastRelaxedLinkedAnchorId = useRef(null);
   const testResults = props.TestResults;
+  const hasComparison = useMemo(() => hasComparisonData(testResults.Tests), [testResults.Tests]);
   const linkedTestResultId = useMemo(() => getLinkedTestResultId(location), [location]);
   const linkedTestResult = useMemo(() => {
     if (!linkedTestResultId) return null;
@@ -76,9 +79,10 @@ export default function TestResultsTable(props) {
     return (selectedStatus.length === 0 || selectedStatus.includes(item.Result)) &&
       (selectedBlock.length === 0 || selectedBlock.includes(item.Block)) &&
       (selectedTag.length === 0 || (item.Tag || []).some(tag => selectedTag.includes(tag))) &&
+      (!showChangedOnly || isTestChanged(item)) &&
       matchesSeverity &&
       matchesSearch;
-  }, [searchQuery, selectedStatus, selectedBlock, selectedTag, selectedSeverity]);
+  }, [searchQuery, selectedStatus, selectedBlock, selectedTag, selectedSeverity, showChangedOnly]);
 
   useEffect(() => {
     if (!linkedTestResult || props.isPrintView) return;
@@ -119,6 +123,10 @@ export default function TestResultsTable(props) {
     if (searchQuery && !testMatchesSearch(linkedTestResult, searchQuery)) {
       setSearchQuery("");
     }
+
+    if (showChangedOnly && !isTestChanged(linkedTestResult)) {
+      setShowChangedOnly(false);
+    }
   }, [
     linkedTestResult,
     location.hash,
@@ -130,6 +138,7 @@ export default function TestResultsTable(props) {
     selectedStatus,
     selectedTag,
     setSelectedStatus,
+    showChangedOnly,
   ]);
 
   const handleSort = (column) => {
@@ -330,6 +339,31 @@ export default function TestResultsTable(props) {
                 ))}
             </MultiSelect>
           </Flex>
+
+          {/* Optional row: "Changed" filter, only when comparison data is present */}
+          {hasComparison && (
+            <Flex justifyContent="start" className="gap-2 mb-4">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showChangedOnly}
+                onClick={() => setShowChangedOnly((value) => !value)}
+                className={`inline-flex items-center gap-2 rounded-tremor-default border px-3 py-2 text-tremor-default transition-colors ${
+                  showChangedOnly
+                    ? "border-tremor-brand bg-tremor-brand-faint text-tremor-brand dark:border-dark-tremor-brand dark:bg-dark-tremor-brand-faint dark:text-dark-tremor-brand"
+                    : "border-tremor-border text-tremor-content hover:bg-tremor-background-muted dark:border-dark-tremor-border dark:text-dark-tremor-content dark:hover:bg-dark-tremor-background-muted"
+                }`}
+                title="Show only tests that changed since the previous run"
+              >
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-full ${
+                    showChangedOnly ? "bg-tremor-brand dark:bg-dark-tremor-brand" : "bg-tremor-border dark:bg-dark-tremor-border"
+                  }`}
+                />
+                Changed
+              </button>
+            </Flex>
+          )}
         </>
       )}
 
@@ -378,6 +412,15 @@ export default function TestResultsTable(props) {
               </TableCell>
               <TableCell className="text-center">
                 <StatusLabel Result={item.Result} />
+                {(() => {
+                  if (!isTestChanged(item)) return null;
+                  const previous = getPreviousResult(item);
+                  return (
+                    <div className="mt-1 text-[10px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                      {previous ? `was ${previous}` : "new"}
+                    </div>
+                  );
+                })()}
               </TableCell>
             </TableRow>
             );
