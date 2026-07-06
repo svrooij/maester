@@ -112,12 +112,55 @@
         return $details
     }
 
+    function GetChangesSummary() {
+        if (-not ($MaesterResults.PSObject.Properties.Name -contains 'Comparison') -or $null -eq $MaesterResults.Comparison) {
+            return ''
+        }
+
+        $comparison = $MaesterResults.Comparison
+        if (-not $comparison.HasChanges) {
+            return "## Changes since last run`n`nNo changes since the previous run.`n`n"
+        }
+
+        function GetChangeRows($tests) {
+            $rows = ''
+            foreach ($test in @($tests)) {
+                $name = if (![string]::IsNullOrEmpty($test.Name)) { $test.Name } else { $test.TestId }
+                $rows += "| $name | $($StatusIconSm[$test.Result]) $($test.Result) |`n"
+            }
+            return $rows
+        }
+
+        $section = "## Changes since last run`n`n"
+
+        if (@($comparison.NewlyFailing).Count -gt 0) {
+            $section += "### ❌ Started failing`n`n|Test|Status|`n|-|:-:|`n"
+            $section += GetChangeRows $comparison.NewlyFailing
+            $section += "`n"
+        }
+
+        if (@($comparison.Fixed).Count -gt 0) {
+            $section += "### ✅ Fixed`n`n|Test|Status|`n|-|:-:|`n"
+            $section += GetChangeRows $comparison.Fixed
+            $section += "`n"
+        }
+
+        if (@($comparison.New).Count -gt 0) {
+            $section += "### 🆕 New tests`n`n|Test|Status|`n|-|:-:|`n"
+            $section += GetChangeRows $comparison.New
+            $section += "`n"
+        }
+
+        return $section
+    }
+
     $markdownFilePath = Join-Path -Path $PSScriptRoot -ChildPath '../assets/ReportTemplate.md'
     $templateMarkdown = Get-Content -Path $markdownFilePath -Raw
 
     # Execute functions first so they don't mess with the markdown template
     $textSummary = GetTestSummary
     $textDetails = GetTestDetails
+    $textChanges = GetChangesSummary
 
     $templateMarkdown = $templateMarkdown -replace '%TenandId%', $MaesterResults.TenantId
     $templateMarkdown = $templateMarkdown -replace '%TenantName%', $MaesterResults.TenantName
@@ -133,6 +176,7 @@
 
     $templateMarkdown = $templateMarkdown -replace '%TestSummary%', $textSummary
     $templateMarkdown = $templateMarkdown -replace '%TestDetails%', $textDetails
+    $templateMarkdown = $templateMarkdown -replace '%ChangesSummary%', $textChanges
 
     return $templateMarkdown
 }

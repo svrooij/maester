@@ -10,7 +10,7 @@ This is a summary of the test results from the Maester test run.
 |:-:|:-:|:-:|:-:|:-:|:-:|
 | **%TotalCount%** | **%PassedCount%** | **%FailedCount%** | **%InvestigateCount%** | **%SkippedCount%** |**%NotRunCount%** |
 
-
+%ChangesSummary%
 ## Test summary
 
 %TestSummary%

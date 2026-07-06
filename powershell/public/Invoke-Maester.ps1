@@ -209,7 +209,16 @@
 
         # The root directory for configuration drift tracking.
         [Parameter(HelpMessage = 'Specify drift root directory, see https://maester.dev/docs/tests/MT.1060')]
-        [string] $DriftRoot
+        [string] $DriftRoot,
+
+        # Compare this run against the previous run and include a "Changes since last run" section
+        # (tests that started failing, that were fixed, and new tests) in the results and reports.
+        [Parameter(HelpMessage = 'Compare this run against the previous run and highlight changes.')]
+        [switch] $CompareToPrevious,
+
+        # The path to a previous result JSON file, or a folder containing previous TestResults-*.json
+        # files, to compare against. Defaults to the output folder. Implies -CompareToPrevious.
+        [string] $PreviousResultsPath
     )
 
     function GetDefaultFileName() {
@@ -487,6 +496,32 @@
         }
 
         $maesterResults = ConvertTo-MtMaesterResult -PesterResults $PesterResults -OutputFiles $out -InvokeMaesterCommand $invokeMaesterCommand -PesterConfiguration $pesterConfig
+
+        if ($CompareToPrevious -or ![string]::IsNullOrEmpty($PreviousResultsPath)) {
+            Write-MtProgress -Activity 'Comparing to previous run'
+            # Default the lookup to the output folder so the current run compares against prior
+            # TestResults files saved there. The JSON for this run has not been written yet, so
+            # anything already on disk is by definition "previous".
+            $previousPath = $PreviousResultsPath
+            if ([string]::IsNullOrEmpty($previousPath)) {
+                $previousPath = $out.OutputFolder
+                if ([string]::IsNullOrEmpty($previousPath) -and ![string]::IsNullOrEmpty($out.OutputJsonFile)) {
+                    $previousPath = Split-Path -Path $out.OutputJsonFile -Parent
+                }
+            }
+
+            if (![string]::IsNullOrEmpty($previousPath)) {
+                $previousResult = Get-MtPreviousMaesterResult -Path $previousPath -TenantId $maesterResults.TenantId -ExcludeFile $out.OutputJsonFile
+                if ($null -ne $previousResult) {
+                    $currentState = ConvertTo-MtTestState -MaesterResults $maesterResults
+                    $previousState = ConvertTo-MtTestState -MaesterResults $previousResult
+                    $comparison = Compare-MtTestState -CurrentState $currentState -PreviousState $previousState
+                    $maesterResults | Add-Member -MemberType NoteProperty -Name 'Comparison' -Value $comparison -Force
+                } else {
+                    Write-Verbose "No previous result found to compare against in '$previousPath'."
+                }
+            }
+        }
 
         if (![string]::IsNullOrEmpty($out.OutputJsonFile)) {
             $maesterResults | ConvertTo-Json -Depth 5 -WarningAction SilentlyContinue | Out-File -FilePath $out.OutputJsonFile -Encoding UTF8
