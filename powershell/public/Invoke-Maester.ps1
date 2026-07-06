@@ -211,8 +211,9 @@
         [Parameter(HelpMessage = 'Specify drift root directory, see https://maester.dev/docs/tests/MT.1060')]
         [string] $DriftRoot,
 
-        # Compare this run against the previous run and include a "Changes since last run" section
-        # (tests that started failing, that were fixed, and new tests) in the results and reports.
+        # Compare this run against the previous run: add a PreviousResult property to each test
+        # (the outcome from the previous run, or empty when the test is new) and include a
+        # "Changes since last run" section in the reports.
         [Parameter(HelpMessage = 'Compare this run against the previous run and highlight changes.')]
         [switch] $CompareToPrevious,
 
