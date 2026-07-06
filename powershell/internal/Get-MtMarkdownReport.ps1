@@ -113,19 +113,31 @@
     }
 
     function GetChangesSummary() {
-        if (-not ($MaesterResults.PSObject.Properties.Name -contains 'Comparison') -or $null -eq $MaesterResults.Comparison) {
+        $tests = @($MaesterResults.Tests) | Where-Object {
+            $null -ne $_ -and ($_.PSObject.Properties.Name -contains 'PreviousResult')
+        }
+
+        # Without any PreviousResult data there is nothing to compare (comparison was not requested).
+        if (@($tests).Count -eq 0) {
             return ''
         }
 
-        $comparison = $MaesterResults.Comparison
-        if (-not $comparison.HasChanges) {
+        $failingResults = @('Failed', 'Error', 'Investigate')
+        function Test-IsFailing($result) { return $failingResults -contains $result }
+        function Test-IsPassing($result) { return $result -eq 'Passed' }
+
+        $newlyFailing = @($tests | Where-Object { (Test-IsFailing $_.Result) -and ![string]::IsNullOrEmpty($_.PreviousResult) -and -not (Test-IsFailing $_.PreviousResult) })
+        $fixed = @($tests | Where-Object { (Test-IsPassing $_.Result) -and (Test-IsFailing $_.PreviousResult) })
+        $new = @($tests | Where-Object { [string]::IsNullOrEmpty($_.PreviousResult) })
+
+        if (@($newlyFailing).Count -eq 0 -and @($fixed).Count -eq 0 -and @($new).Count -eq 0) {
             return "## Changes since last run`n`nNo changes since the previous run.`n`n"
         }
 
-        function GetChangeRows($tests) {
+        function GetChangeRows($changeTests) {
             $rows = ''
-            foreach ($test in @($tests)) {
-                $name = if (![string]::IsNullOrEmpty($test.Name)) { $test.Name } else { $test.TestId }
+            foreach ($test in @($changeTests)) {
+                $name = if (![string]::IsNullOrEmpty($test.Name)) { $test.Name } else { $test.Id }
                 $rows += "| $name | $($StatusIconSm[$test.Result]) $($test.Result) |`n"
             }
             return $rows
@@ -133,21 +145,21 @@
 
         $section = "## Changes since last run`n`n"
 
-        if (@($comparison.NewlyFailing).Count -gt 0) {
+        if (@($newlyFailing).Count -gt 0) {
             $section += "### ❌ Started failing`n`n|Test|Status|`n|-|:-:|`n"
-            $section += GetChangeRows $comparison.NewlyFailing
+            $section += GetChangeRows $newlyFailing
             $section += "`n"
         }
 
-        if (@($comparison.Fixed).Count -gt 0) {
+        if (@($fixed).Count -gt 0) {
             $section += "### ✅ Fixed`n`n|Test|Status|`n|-|:-:|`n"
-            $section += GetChangeRows $comparison.Fixed
+            $section += GetChangeRows $fixed
             $section += "`n"
         }
 
-        if (@($comparison.New).Count -gt 0) {
+        if (@($new).Count -gt 0) {
             $section += "### 🆕 New tests`n`n|Test|Status|`n|-|:-:|`n"
-            $section += GetChangeRows $comparison.New
+            $section += GetChangeRows $new
             $section += "`n"
         }
 

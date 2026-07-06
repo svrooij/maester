@@ -513,10 +513,18 @@
             if (![string]::IsNullOrEmpty($previousPath)) {
                 $previousResult = Get-MtPreviousMaesterResult -Path $previousPath -TenantId $maesterResults.TenantId -ExcludeFile $out.OutputJsonFile
                 if ($null -ne $previousResult) {
-                    $currentState = ConvertTo-MtTestState -MaesterResults $maesterResults
+                    # Enrich each test with the outcome from the previous run so consumers can
+                    # compute change stats and filter changed tests without a duplicated block.
                     $previousState = ConvertTo-MtTestState -MaesterResults $previousResult
-                    $comparison = Compare-MtTestState -CurrentState $currentState -PreviousState $previousState
-                    $maesterResults | Add-Member -MemberType NoteProperty -Name 'Comparison' -Value $comparison -Force
+                    foreach ($test in @($maesterResults.Tests)) {
+                        if ($null -eq $test) { continue }
+                        $testId = if (![string]::IsNullOrWhiteSpace($test.Id)) { $test.Id } else { $test.Name }
+                        $previousOutcome = $null
+                        if (![string]::IsNullOrWhiteSpace($testId) -and $previousState.Contains($testId)) {
+                            $previousOutcome = $previousState[$testId].Result
+                        }
+                        $test | Add-Member -MemberType NoteProperty -Name 'PreviousResult' -Value $previousOutcome -Force
+                    }
                 } else {
                     Write-Verbose "No previous result found to compare against in '$previousPath'."
                 }
